@@ -1,18 +1,17 @@
 FROM nats:2.9.18-scratch as nats
 FROM strukturag/nextcloud-spreed-signaling:1.1.2 as signaling
-FROM coturn/coturn:4.6.2-r3-alpine
-USER root
-# Pin alpine version manually as long as https://github.com/coturn/coturn/issues/1226 is not done
-ENV ALPINE_VERSION=3.18
+FROM ghcr.io/processone/eturnal:x.x.x-otpxx AS eturnal
+FROM alpine:3.18.2
 
-COPY --from=nats /nats-server /usr/local/bin/nats-server
+COPY --from=eturnal   /opt/eturnal                        /opt/eturnal
+COPY --from=nats      /nats-server                        /usr/local/bin/nats-server
 COPY --from=signaling /usr/bin/nextcloud-spreed-signaling /usr/local/bin/nextcloud-spreed-signaling
 
-COPY --chmod=775 start.sh /start.sh
+COPY --chmod=775 cron.sh          /cron.sh
+COPY --chmod=775 start.sh         /start.sh
 COPY --chmod=664 supervisord.conf /supervisord.conf
 
 RUN set -ex; \
-    grep VERSION_ID /etc/os-release | grep -q "$ALPINE_VERSION.[0-9]\+$"; \
     apk add --no-cache \
         ca-certificates \
         tzdata \
@@ -28,9 +27,11 @@ RUN set -ex; \
         wget \
         lua5.3-dev \
         luarocks5.3; \
-    useradd --system talk; \
+    useradd --system eturnal; \
     luarocks-5.3 install luajson; \
     luarocks-5.3 install ansicolors; \
+    ln -s /opt/eturnal/bin/eturnalctl /usr/local/bin/eturnalctl; \
+    ln -s /opt/eturnal/bin/stun /usr/local/bin/stun; \
     rename -v ".jcfg.sample" ".jcfg" /etc/janus/*.sample; \
     apk del --no-cache \
         shadow \
@@ -45,30 +46,23 @@ RUN set -ex; \
     \
     touch \
         /etc/nats.conf \
-        /etc/signaling.conf \
-        /etc/turnserver.conf; \
+        /etc/signaling.conf; \
     echo "listen: 127.0.0.1:4222" | tee /etc/nats.conf; \
     mkdir -p \
-        /var/tmp \
-        /var/lib/turn \
         /var/log/supervisord \
         /var/run/supervisord; \
-    chown talk:talk -R \
+    chown eturnal:eturnal -R \
         /usr \
         /etc/janus \
+        /opt/eturnal \
         /etc/nats.conf \
         /etc/signaling.conf \
-        /etc/turnserver.conf \
-        /var/lib/turn \
         /var/log/supervisord \
         /var/run/supervisord;
 
-# Set default talk port https://github.com/nextcloud/all-in-one/issues/1011
-ENV TALK_PORT=3478
-
-USER talk
+USER eturnal
 ENTRYPOINT ["/start.sh"]
 CMD ["supervisord", "-c", "/supervisord.conf"]
 
-HEALTHCHECK CMD (nc -z localhost 8081 && nc -z localhost 8188 && nc -z localhost 4222 && nc -z localhost "$TALK_PORT" && nc -z "$NC_DOMAIN" "$TALK_PORT") || exit 1
+HEALTHCHECK CMD (nc -z localhost 8081 && nc -z localhost 8188 && nc -z localhost 4222 && nc -z localhost "$TALK_PORT" && nc -z "$NC_DOMAIN" "$TALK_PORT" && eturnalctl status) || exit 1
 LABEL com.centurylinklabs.watchtower.monitor-only="true"
