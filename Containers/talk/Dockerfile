@@ -7,7 +7,6 @@ COPY --from=eturnal   /opt/eturnal                        /opt/eturnal
 COPY --from=nats      /nats-server                        /usr/local/bin/nats-server
 COPY --from=signaling /usr/bin/nextcloud-spreed-signaling /usr/local/bin/nextcloud-spreed-signaling
 
-COPY --chmod=775 cron.sh          /cron.sh
 COPY --chmod=775 start.sh         /start.sh
 COPY --chmod=664 supervisord.conf /supervisord.conf
 
