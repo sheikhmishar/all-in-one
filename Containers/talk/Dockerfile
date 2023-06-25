@@ -3,7 +3,10 @@ FROM strukturag/nextcloud-spreed-signaling:1.1.2 as signaling
 FROM ghcr.io/processone/eturnal:x.x.x-otpxx AS eturnal
 FROM alpine:3.18.2
 
+ENV STUN_SERVICE="stun.nextcloud.com 443"
+
 COPY --from=eturnal   /opt/eturnal                        /opt/eturnal
+COPY --from=eturnal   /usr/local/bin/eturnalctl           /usr/local/bin/eturnalctl
 COPY --from=nats      /nats-server                        /usr/local/bin/nats-server
 COPY --from=signaling /usr/bin/nextcloud-spreed-signaling /usr/local/bin/nextcloud-spreed-signaling
 
@@ -29,9 +32,8 @@ RUN set -ex; \
     useradd --system eturnal; \
     luarocks-5.3 install luajson; \
     luarocks-5.3 install ansicolors; \
-    ln -s /opt/eturnal/bin/eturnalctl /usr/local/bin/eturnalctl; \
-    ln -s /opt/eturnal/bin/stun /usr/local/bin/stun; \
     rename -v ".jcfg.sample" ".jcfg" /etc/janus/*.sample; \
+    ln -s /opt/eturnal/bin/stun /usr/local/bin/stun; \
     apk del --no-cache \
         shadow \
         util-linux \

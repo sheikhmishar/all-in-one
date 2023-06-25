@@ -19,17 +19,15 @@ elif [ -z "$INTERNAL_SECRET" ]; then
 fi
 
 set -x
-if [ -n "$(dig nextcloud-aio-talk A +short | grep -E "^[0-9.]+$" | sort | head -n1)" ]; then
-    IPv4_ADDRESS_TALK="$(dig nextcloud-aio-talk A +short | grep -E "^[0-9.]+$" | sort | head -n1)"
-fi
-if [ -n "$(dig nextcloud-aio-talk AAAA +short | grep -E "^[0-9a-fA-F:]+$" | sort | head -n1)" ]; then
-    IPv6_ADDRESS_TALK="$(dig nextcloud-aio-talk AAAA +short | grep -E "^[0-9a-fA-F:]+$" | sort | head -n1)"
-fi
+#IPv4_ADDRESS_TALK="$(dig nextcloud-aio-talk A +short | grep -E "^[0-9.]+$" | sort | head -n1)"
+#IPv6_ADDRESS_TALK="$(dig nextcloud-aio-talk AAAA +short | grep -E "^[0-9a-fA-F:]+$" | sort | head -n1)"
 
-if [ -n "$(dig "$NC_DOMAIN" A +short | grep -E "^[0-9.]+$" | sort | head -n1)" ]; then
+IPv4_ADDRESS_NC="$(dig "$NC_DOMAIN" A +short +https +tls-ca=/etc/ssl/certs/ca-certificates.crt @1.1.1.1 | grep -E "^[0-9.]+$" | sort | head -n1)"
+IPv6_ADDRESS_NC="$(dig "$NC_DOMAIN" AAAA +short +https +tls-ca=/etc/ssl/certs/ca-certificates.crt @1.1.1.1 | grep -E "^[0-9a-fA-F:]+$" | sort | head -n1)"
+if [ -z "$IPv4_ADDRESS_NC" ]; then
     IPv4_ADDRESS_NC="$(dig "$NC_DOMAIN" A +short | grep -E "^[0-9.]+$" | sort | head -n1)"
 fi
-if [ -n "$(dig "$NC_DOMAIN" AAAA +short | grep -E "^[0-9a-fA-F:]+$" | sort | head -n1)" ]; then
+if [ -z "$IPv6_ADDRESS_NC" ]; then
     IPv6_ADDRESS_NC="$(dig "$NC_DOMAIN" AAAA +short | grep -E "^[0-9a-fA-F:]+$" | sort | head -n1)"
 fi
 set +x
@@ -49,15 +47,18 @@ eturnal:
   secret: "$TURN_SECRET"
   relay_ipv4_addr: "$IPv4_ADDRESS_NC"
   relay_ipv6_addr: "$IPv6_ADDRESS_NC"
-  whitelist:
-  - 127.0.0.1
-  - ::1
-  - "$IPv4_ADDRESS_TALK"
-  - "$IPv6_ADDRESS_TALK"
-  blacklist:
-  - recommended
+  blacklist: []
+  whitelist: []
 TURN_CONF
+#  blacklist:
+#  - recommended
+#  whitelist:
+#  - 127.0.0.1
+#  - ::1
+#  - "$IPv4_ADDRESS_TALK"
+#  - "$IPv6_ADDRESS_TALK"
 
+# Remove empty lines so that the config is not invalid
 sed -i '/""/d' /opt/eturnal/etc/eturnal.yml
 
 # Signling
